@@ -28,7 +28,7 @@ it('uploads signed parts without authorization and preserves identity across a l
   expect(receipt.status).toBe('accepted');
   expect(receipt.space_id).toBe(123);
   expect(receipt.continuation_url).toBe('https://app.docuwriter.ai/spaces/123');
-  expect(progress.mock.calls).toEqual([[1, 2], [2, 2]]);
+  expect(progress.mock.calls).toEqual([[1, 2, 3], [2, 2, 6]]);
   expect(fetch.mock.calls[1][1].headers).toEqual({ 'Content-Type': 'application/octet-stream', 'Content-Length': '3' });
   expect(fetch.mock.calls[4][1].body).toBe(fetch.mock.calls[5][1].body);
   expect(JSON.parse(fetch.mock.calls[5][1].body).idempotency_key).toBe('stable-id');

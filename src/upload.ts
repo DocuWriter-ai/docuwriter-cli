@@ -24,7 +24,7 @@ export class Uploader {
       }
     }
   }
-  async submit(pending: Pending, progress: (part: number, total: number) => void): Promise<Receipt> {
+  async submit(pending: Pending, progress: (part: number, total: number, completedBytes: number) => void): Promise<Receipt> {
     if (!pending.completed) {
       // Signed part URLs expire. A restarted command starts a fresh private upload,
       // retaining the submission idempotency key and exact approved snapshot.
@@ -62,7 +62,7 @@ export class Uploader {
           }, this.signal, 'part');
           pending.parts.push({ part_number: part.part_number, etag });
           await this.storage.save('pending', pending);
-          progress(index + 1, sortedParts.length);
+          progress(index + 1, sortedParts.length, start + result.bytesRead);
         }
       } finally { await file.close(); }
       this.onStage('upload_completion');

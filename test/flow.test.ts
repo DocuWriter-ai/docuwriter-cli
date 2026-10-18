@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Storage as ActualStorage } from '../src/storage.js';
 import type { Context } from '../src/types.js';
 
-const mocks = vi.hoisted(() => ({ state: '', select: vi.fn(), multiselect: vi.fn(), text: vi.fn(), confirm: vi.fn(), session: vi.fn(), notes: vi.fn(), browser: vi.fn() }));
+const mocks = vi.hoisted(() => ({ state: '', select: vi.fn(), multiselect: vi.fn(), text: vi.fn(), confirm: vi.fn(), session: vi.fn(), notes: vi.fn(), browser: vi.fn(), intro: vi.fn(), outro: vi.fn(), success: vi.fn(), step: vi.fn(), info: vi.fn(), progressAdvance: vi.fn(), progressMessage: vi.fn(), progressStop: vi.fn(), progressError: vi.fn(), progressCancel: vi.fn(), spinnerStart: vi.fn(), spinnerMessage: vi.fn(), spinnerStop: vi.fn() }));
 vi.mock('../src/storage.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/storage.js')>();
   return { ...actual, Storage: class extends actual.Storage { constructor(origin: string) { super(origin, mocks.state); } } };
@@ -14,8 +14,10 @@ vi.mock('../src/auth.js', () => ({ Authentication: class { session = mocks.sessi
 vi.mock('open', () => ({ default: mocks.browser }));
 vi.mock('@clack/prompts', () => ({
   isCancel: (value: unknown) => typeof value === 'symbol',
-  select: mocks.select, multiselect: mocks.multiselect, text: mocks.text, confirm: mocks.confirm, note: mocks.notes,
-  log: { info: vi.fn() }, spinner: () => ({ start: vi.fn(), message: vi.fn(), stop: vi.fn() }),
+  select: mocks.select, autocomplete: mocks.select, multiselect: mocks.multiselect, autocompleteMultiselect: mocks.multiselect, intro: mocks.intro, outro: mocks.outro, text: mocks.text, confirm: mocks.confirm, note: mocks.notes,
+  log: { info: mocks.info, success: mocks.success, step: mocks.step },
+  spinner: () => ({ start: mocks.spinnerStart, message: mocks.spinnerMessage, stop: mocks.spinnerStop, error: vi.fn(), cancel: vi.fn() }),
+  progress: () => ({ start: vi.fn(), advance: mocks.progressAdvance, message: mocks.progressMessage, stop: mocks.progressStop, error: mocks.progressError, cancel: mocks.progressCancel }),
 }));
 import { run } from '../src/flow.js';
 
@@ -31,6 +33,7 @@ const stdinTty = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY');
 const stderrTty = Object.getOwnPropertyDescriptor(process.stderr, 'isTTY');
 beforeEach(async () => {
   vi.stubEnv('DOCUWRITER_TELEMETRY_DISABLED', '1');
+  vi.stubEnv('TERM', 'xterm-256color');
   root = await realpath(await mkdtemp(join(tmpdir(), 'docuwriter-flow-test-')));
   mocks.state = join(root, 'state');
   await mkdir(join(root, 'project'));
@@ -38,11 +41,12 @@ beforeEach(async () => {
   Object.defineProperty(process.stdin, 'isTTY', { configurable: true, value: true });
   Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: true });
   vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+  mocks.text.mockImplementation(async (options: { initialValue?: string; defaultValue?: string }) => options.initialValue ?? options.defaultValue ?? '');
   mocks.session.mockResolvedValue({ access_token: 'session', expires_at: Date.now() + 100_000, client_id: 'cli' });
   process.exitCode = 0;
 });
 afterEach(async () => {
-  vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs();
+  vi.restoreAllMocks(); vi.resetAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs();
   if (stdinTty) Object.defineProperty(process.stdin, 'isTTY', stdinTty); else delete (process.stdin as { isTTY?: boolean }).isTTY;
   if (stderrTty) Object.defineProperty(process.stderr, 'isTTY', stderrTty); else delete (process.stderr as { isTTY?: boolean }).isTTY;
   process.exitCode = 0;
@@ -60,7 +64,7 @@ it('runs the complete deterministic guided handoff with saved custom sector and 
   mocks.confirm.mockResolvedValue(true);
   mocks.text.mockResolvedValueOnce('Example').mockResolvedValue('');
   mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Custom saved sector')
-    .mockResolvedValueOnce('skip');
+    ;
   const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
   await run('start', { cwd: join(root, 'project'), open: false, json: true });
   expect(process.exitCode).toBe(0);
@@ -78,7 +82,7 @@ it('runs the complete deterministic guided handoff with saved custom sector and 
 it('uploads the questionnaire answers and custom sector without a review or second confirmation', async () => {
   mocks.confirm.mockResolvedValue(true);
   mocks.text.mockResolvedValueOnce('Updated').mockResolvedValueOnce('Manufacturing').mockResolvedValueOnce('');
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('__custom__').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('__custom__');
   const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
 
   await run('start', { cwd: join(root, 'project'), open: false });
@@ -87,13 +91,15 @@ it('uploads the questionnaire answers and custom sector without a review or seco
   expect(mocks.text.mock.calls[0][0]).toMatchObject({ message: 'Company or project name (optional)', initialValue: 'project' });
   expect(mocks.confirm).toHaveBeenCalledTimes(1);
   expect(mocks.select.mock.calls.map(([options]) => options.message)).toEqual([
-    'Do you already have documentation?', 'What type of documentation do you need?', 'Sector (optional)', 'Timezone (optional)',
+    'Do you already have documentation?', 'Who is this documentation for?', 'Sector (optional)',
   ]);
-  expect(mocks.notes.mock.calls.map(([, title]) => title)).toEqual(['Your project']);
+  expect(mocks.intro).toHaveBeenCalledWith('DocuWriter CLI', expect.objectContaining({ output: process.stderr }));
+  expect(mocks.info.mock.calls.some(([message]) => message.includes(join(root, 'project')))).toBe(true);
   expect(process.exitCode).toBe(0);
-  const humanOutput = vi.mocked(process.stdout.write).mock.calls[0][0] as string;
-  expect(humanOutput).toContain('Space ID: 123');
-  expect(humanOutput).toContain('Follow documentation progress in DocuWriter: https://app.docuwriter.ai/spaces/123');
+  expect(mocks.success).toHaveBeenCalledWith('Documentation started', expect.anything());
+  expect(mocks.info).toHaveBeenCalledWith('Space 123\nhttps://app.docuwriter.ai/spaces/123', expect.anything());
+  expect(mocks.outro).toHaveBeenCalledWith('Continue in your Space. You can close this terminal.', expect.anything());
+  expect(process.stdout.write).not.toHaveBeenCalled();
 });
 it('cancels during the questionnaire without packaging or uploading', async () => {
   mocks.confirm.mockResolvedValue(true); mocks.text.mockResolvedValueOnce('Example').mockResolvedValueOnce(Symbol('cancel'));
@@ -118,17 +124,17 @@ it('invalidates a revoked saved session and reauthorizes once before continuing'
 it('asks for the goal directly as open text and preserves the submitted prose', async () => {
   mocks.confirm.mockResolvedValue(true);
   mocks.text.mockResolvedValueOnce('Example').mockResolvedValueOnce('  Help new engineers understand the architecture.  ');
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
   const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
 
   await run('start', { cwd: join(root, 'project'), open: false });
 
   expect(JSON.parse(fetch.mock.calls[4][1].body).documentation_goal).toBe('Help new engineers understand the architecture.');
   expect(mocks.select.mock.calls.some(([options]) => options.message === context.goal.prompt)).toBe(false);
-  const goalPrompts = mocks.text.mock.calls.filter(([options]) => options.message === context.goal.prompt);
+  const goalPrompts = mocks.text.mock.calls.filter(([options]) => options.message === 'What should your documentation help with? (optional)');
   expect(goalPrompts).toHaveLength(1);
   const options = goalPrompts[0][0];
-  expect(options.placeholder).toContain('press Enter for Not now');
+  expect(options.placeholder).toContain('Enter to skip');
   expect(options.validate('')).toBeUndefined();
   expect(options.validate('x'.repeat(500))).toBeUndefined();
   expect(options.validate('x'.repeat(501))).toBe('Use 500 characters or fewer.');
@@ -138,7 +144,7 @@ it('asks for the goal directly as open text and preserves the submitted prose', 
 it('opens the direct Space URL and exits without waiting for documentation generation', async () => {
   mocks.confirm.mockResolvedValue(true);
   mocks.text.mockResolvedValueOnce('Example').mockResolvedValueOnce('');
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
   const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
 
   await run('start', { cwd: join(root, 'project'), open: true });
@@ -151,7 +157,7 @@ it('opens the direct Space URL and exits without waiting for documentation gener
 it('keeps the submission identity when an accepted receipt has an invalid Space ID', async () => {
   mocks.confirm.mockResolvedValue(true);
   mocks.text.mockResolvedValueOnce('Example').mockResolvedValueOnce('');
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
   vi.stubGlobal('fetch', acceptedFetch(0));
 
   await run('start', { cwd: join(root, 'project'), open: true, json: true });
@@ -190,7 +196,10 @@ it('offers an explicit import path and sends only selected documentation and ref
   expect(archive.includes(Buffer.from('project/docs/logo.png'))).toBe(true);
   expect(archive.includes(Buffer.from('unreferenced.png'))).toBe(false);
   expect(archive.includes(Buffer.from('main.ts'))).toBe(false);
-  expect(vi.mocked(process.stdout.write).mock.calls[0][0]).toContain('Documentation import started.');
+  expect(mocks.success).toHaveBeenCalledWith('Documentation import started', expect.anything());
+  expect(mocks.spinnerStart).toHaveBeenCalledWith('Looking for Markdown documentation…');
+  expect(mocks.multiselect.mock.calls[0][0].maxItems).toBe(6);
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
 });
 it('validates a custom documentation path and does not upload when import selection is cancelled', async () => {
   await writeFile(join(root, 'project', 'README.md'), '# Existing');
@@ -224,7 +233,7 @@ it.each(['generate', 'import'])('records the full %s journey without leaking sou
     await writeFile(join(root, 'project', 'docs', 'private.md'), '# Hello');
     mocks.select.mockResolvedValueOnce('import'); mocks.multiselect.mockResolvedValueOnce(['docs/']); mocks.text.mockResolvedValueOnce('Private Space name');
   } else {
-    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
     mocks.text.mockResolvedValueOnce('Example Company').mockResolvedValueOnce('Help new engineers');
   }
   const business = acceptedFetch();
@@ -298,7 +307,7 @@ it.each(['generate', 'import'])('reports the free ZIP cap and cleans the package
   if (mode === 'import') {
     mocks.select.mockResolvedValueOnce('import'); mocks.multiselect.mockResolvedValueOnce(['README.md']); mocks.text.mockResolvedValueOnce('Docs');
   } else {
-    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
     mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   }
   const fetch = vi.fn().mockResolvedValue(Response.json({ ...context, upload: { ...context.upload, max_bytes: 1, plan_max_bytes: 1, max_uncompressed_bytes: 100_000, pricing_url: '/pricing' } }));
@@ -316,7 +325,7 @@ it.each(['generate', 'import'])('applies the %s plan limit to the compressed ZIP
   if (mode === 'import') {
     mocks.select.mockResolvedValueOnce('import'); mocks.multiselect.mockResolvedValueOnce(['README.md']); mocks.text.mockResolvedValueOnce('Docs');
   } else {
-    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
     mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   }
   const fetch = acceptedFetch();
@@ -349,7 +358,7 @@ it.each(['generate', 'import'])('accepts a %s ZIP exactly equal to its inclusive
   if (mode === 'import') {
     mocks.select.mockResolvedValueOnce('import'); mocks.multiselect.mockResolvedValueOnce(['README.md']); mocks.text.mockResolvedValueOnce('Docs');
   } else {
-    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+    mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
     mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   }
   const business = acceptedFetch();
@@ -376,7 +385,7 @@ it.each([
 ] as const)('sends authenticated sanitized diagnostics for %s failures', async (failureStage, code, status) => {
   vi.stubEnv('DOCUWRITER_TELEMETRY_DISABLED', '0');
   mocks.confirm.mockResolvedValue(true);
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
   mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   const business = acceptedFetch();
   const events: any[] = [];
@@ -408,7 +417,7 @@ it.each([
 it('records a sanitized browser launch failure without failing an accepted submission', async () => {
   vi.stubEnv('DOCUWRITER_TELEMETRY_DISABLED', '0');
   mocks.confirm.mockResolvedValue(true);
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
   mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   mocks.browser.mockRejectedValueOnce(new Error('/private/executable secret-value'));
   const business = acceptedFetch(); const events: any[] = [];
@@ -428,7 +437,7 @@ it('records a sanitized browser launch failure without failing an accepted submi
 it('records each bounded upload retry and the exhausted retry count', async () => {
   vi.stubEnv('DOCUWRITER_TELEMETRY_DISABLED', '0');
   mocks.confirm.mockResolvedValue(true);
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
   mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   const business = acceptedFetch(); const events: any[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL, options: RequestInit = {}) => {
@@ -452,7 +461,7 @@ it.each([
   [false, 'https://attacker.example/private-token'],
 ])('exposes only validated support references in final errors (json=%s)', async (json, reference) => {
   mocks.confirm.mockResolvedValue(true);
-  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('').mockResolvedValueOnce('current');
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('');
   mocks.text.mockResolvedValueOnce('Project').mockResolvedValueOnce('');
   const business = acceptedFetch();
   vi.stubGlobal('fetch', vi.fn(async (url: string | URL, options: RequestInit = {}) => {
@@ -470,4 +479,52 @@ it.each([
     else expect(output).not.toContain('Support reference:');
   }
   expect(output).not.toContain('private-server-message'); expect(process.exitCode).toBe(1);
+});
+
+
+it('keeps timezone editing to one prefilled text prompt and preserves validation', async () => {
+  mocks.confirm.mockResolvedValue(true);
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
+  mocks.text.mockImplementation(async (options: { message: string; initialValue?: string }) => options.message === 'Timezone (optional)' ? '  America/Toronto  ' : options.initialValue ?? '');
+  const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
+
+  await run('start', { cwd: join(root, 'project'), open: false, json: true });
+
+  const timezone = mocks.text.mock.calls.filter(([options]) => options.message === 'Timezone (optional)');
+  expect(timezone).toHaveLength(1);
+  expect(timezone[0][0].initialValue).toBe('Europe/Madrid');
+  expect(timezone[0][0].validate('')).toBeUndefined();
+  expect(timezone[0][0].validate('invalid/timezone')).toContain('IANA timezone');
+  expect(JSON.parse(fetch.mock.calls[4][1].body).timezone).toBe('America/Toronto');
+  expect(mocks.confirm).toHaveBeenCalledTimes(1);
+  expect(mocks.select).toHaveBeenCalledTimes(3);
+  expect(mocks.progressAdvance).not.toHaveBeenCalled();
+});
+
+it('shows confirmed upload bytes and an exact Space handoff without generation polling', async () => {
+  mocks.confirm.mockResolvedValue(true);
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
+  const fetch = acceptedFetch(); vi.stubGlobal('fetch', fetch);
+
+  await run('start', { cwd: join(root, 'project'), open: false });
+
+  expect(mocks.progressAdvance.mock.calls[0][0]).toBe((fetch.mock.calls[2][1].body as Buffer).length);
+  expect(mocks.progressMessage.mock.calls.map(([message]) => message)).toEqual(['Preparing upload…', 'Verifying upload…', 'Starting your Space…']);
+  expect(mocks.progressStop).toHaveBeenCalledExactlyOnceWith('Snapshot accepted.');
+  expect(mocks.progressError).not.toHaveBeenCalled();
+  expect(mocks.success).toHaveBeenCalledWith('Documentation started', expect.anything());
+  expect(fetch).toHaveBeenCalledTimes(5);
+});
+
+it('does not show success when a server receipt is invalid', async () => {
+  mocks.confirm.mockResolvedValue(true);
+  mocks.select.mockResolvedValueOnce('generate').mockResolvedValueOnce('internal').mockResolvedValueOnce('Technology');
+  vi.stubGlobal('fetch', acceptedFetch(0));
+
+  await run('start', { cwd: join(root, 'project'), open: false });
+
+  expect(mocks.progressStop).not.toHaveBeenCalled();
+  expect(mocks.progressError).toHaveBeenCalledTimes(1);
+  expect(mocks.success.mock.calls.some(([message]) => message === 'Documentation started')).toBe(false);
+  expect(process.exitCode).toBe(1);
 });

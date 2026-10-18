@@ -10,6 +10,26 @@ export function documentationLocations(selection: Selection): string[] {
   return [...[...directories].sort().map(directory => directory === '.' ? '.' : `${directory}/`), ...files];
 }
 
+export function documentationOptions(selection: Selection): { value: string; label: string; hint: string }[] {
+  const documents = [...new Set(selection.files.filter(file => markdown(file.name)).map(file => file.name))];
+  const locations = [...new Set(documentationLocations(selection))].sort((first, second) => {
+    const firstDirectory = first === '.' || first.endsWith('/');
+    const secondDirectory = second === '.' || second.endsWith('/');
+    return Number(secondDirectory) - Number(firstDirectory) || first.replace(/\/$/, '').localeCompare(second.replace(/\/$/, ''));
+  });
+  return locations.map(value => {
+    const pageCount = documents.filter(name => value === '.' || name === value || (value.endsWith('/') && name.startsWith(value))).length;
+    return { value, label: value === '.' ? 'All documentation' : value, hint: `${pageCount} ${pageCount === 1 ? 'page' : 'pages'}` };
+  });
+}
+
+export function documentationSummary(selection: Selection): string {
+  const files = [...new Map(selection.files.map(file => [file.name, file])).values()];
+  const pages = files.filter(file => markdown(file.name)).length;
+  const images = files.filter(file => image(file.name)).length;
+  return `${pages} ${pages === 1 ? 'page' : 'pages'} · ${images} ${images === 1 ? 'image' : 'images'} · ${files.length} ${files.length === 1 ? 'file' : 'files'}`;
+}
+
 export function documentationPath(selection: Selection, input: string): string | undefined {
   const value = input.trim();
   if (!value || isAbsolute(value) || value.includes('\\')) return undefined;
