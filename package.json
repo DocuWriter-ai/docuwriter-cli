@@ -1,0 +1,35 @@
+{
+  "name": "docuwriter",
+  "version": "0.1.0",
+  "description": "Start DocuWriter documentation from your local project",
+  "type": "module",
+  "bin": {
+    "docuwriter": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "check": "tsc --noEmit",
+    "test": "vitest run --pool=forks --fileParallelism",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.8.1",
+    "archiver": "8.0.0",
+    "commander": "15.0.0",
+    "ignore": "7.0.12",
+    "open": "11.0.4"
+  },
+  "devDependencies": {
+    "@types/archiver": "8.0.0",
+    "@types/node": "^22.18.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.4"
+  }
+}
