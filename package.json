@@ -31,5 +31,26 @@
     "@types/node": "^22.18.0",
     "typescript": "7.0.2",
     "vitest": "5.0.4"
+  },
+  "homepage": "https://www.docuwriter.ai",
+  "author": "DocuWriter.ai",
+  "license": "UNLICENSED",
+  "keywords": [
+    "docuwriter",
+    "documentation",
+    "cli",
+    "markdown",
+    "codebase"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DocuWriter-ai/docuwriter-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DocuWriter-ai/docuwriter-cli/issues"
   }
 }

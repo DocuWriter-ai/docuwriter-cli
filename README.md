@@ -4,6 +4,12 @@ Start documentation from your current project, then continue on DocuWriter. The 
 
 This package is under development and has **not been published**. The intended command is `npx docuwriter`; npm package ownership must be confirmed before publication.
 
+## Intended installation
+
+Once published, run `npx docuwriter` in your project directory. The package is not available yet. The `docuwriter-ai` npm organization does not reserve this unscoped name; an organization-scoped alternative would be `@docuwriter-ai/cli`.
+
+The CLI is proprietary (`UNLICENSED`); public package distribution does not grant an open-source license. Source and issue tracking: [DocuWriter-ai/docuwriter-cli](https://github.com/DocuWriter-ai/docuwriter-cli).
+
 ## Local development
 
 Requires Node.js 22.18 or later.
@@ -16,7 +22,7 @@ node dist/index.js --cwd /absolute/path/to/project
 
 The guide confirms the exact directory, opens browser sign-in or registration, and asks whether to generate documentation from code or import existing documentation. Generation asks the platform's documentation questions and uploads the filtered snapshot automatically after the questions. Local edits and untracked files are included unless excluded. Git ignore rules, platform exclusions, and mandatory credential/dependency exclusions apply. Symlinks are never included. Confirm the selected folder at the start; no second upload confirmation is required.
 
-For existing documentation, choose a suggested Markdown file/folder or enter a path inside the selected project, then name the Space (default: project folder name). The CLI uploads only selected `.md`/`.markdown` files and their referenced local PNG/JPEG/GIF/WebP images, preserving project-relative paths. This path skips generation questions and imports the existing content without AI generation. The backend must advertise support for documentation imports.
+For existing documentation, select one or more suggested Markdown files/folders or enter paths inside the selected project, then name the Space (default: project folder name). The CLI uploads only selected `.md`/`.markdown` files and their referenced local PNG/JPEG/GIF/WebP images, preserving project-relative paths. This path skips generation questions and imports the existing content without AI generation. The backend must advertise support for documentation imports.
 
 After the platform accepts the snapshot, the CLI prints the Space ID, opens and prints the direct Space progress URL, removes the local ZIP, and exits. For generation, the platform automatically prepares the repository and starts documentation under the account's existing access and credit rules. Existing documentation imports instead continue in the selected new Space and include a short optional paid Autopilot offer. There is no outline-review handoff. Generation, billing, progress, and notifications stay on the platform; the terminal does not poll for documentation progress.
 
@@ -56,7 +62,7 @@ npm test
 npm pack --dry-run
 ```
 
-Publishing, creating a remote repository, deployment, and enabling the homepage command are separate release steps. Do not advertise the npm command until its package and backend are available.
+Publishing, deployment, and enabling the homepage command are separate release steps. Do not advertise the npm command until its package and backend are available.
 
 The GitHub Actions workflow runs the same checks on macOS, Linux, and Windows with Node 22 and the latest Node release. It has not been run remotely. A real browser sign-in/signup and multipart upload against the deployed backend, plus manual interactive checks on all three operating systems, remain release checks. An npm registry lookup returning no public package does not establish publishing ownership; verify the intended publisher before release.
 
