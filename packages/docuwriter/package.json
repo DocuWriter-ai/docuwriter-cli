@@ -1,0 +1,35 @@
+{
+  "name": "docuwriter",
+  "version": "0.1.1",
+  "description": "Start DocuWriter documentation from your local project",
+  "type": "module",
+  "bin": {
+    "docuwriter": "index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "license": "MIT",
+  "author": "DocuWriter.ai",
+  "homepage": "https://www.docuwriter.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DocuWriter-ai/docuwriter-cli.git",
+    "directory": "packages/docuwriter"
+  },
+  "bugs": {
+    "url": "https://github.com/DocuWriter-ai/docuwriter-cli/issues"
+  },
+  "dependencies": {
+    "@docuwriter-ai/cli": "0.1.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
