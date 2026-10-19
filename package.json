@@ -1,5 +1,5 @@
 {
-  "name": "docuwriter",
+  "name": "@docuwriter-ai/cli",
   "version": "0.1.0",
   "description": "Start DocuWriter documentation from your local project",
   "type": "module",
