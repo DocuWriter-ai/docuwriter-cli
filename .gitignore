@@ -2,3 +2,14 @@ node_modules/
 dist/
 coverage/
 *.tgz
+
+# Local credentials and runtime files
+.env
+.env.*
+.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+.DS_Store
