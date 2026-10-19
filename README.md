@@ -6,8 +6,6 @@ Start documentation from your terminal with [DocuWriter](https://www.docuwriter.
 
 Requires Node.js **22.18 or later** and a DocuWriter account. You can sign in or create an account during setup.
 
-> The npm package has not been published yet. The command below will be available after release.
-
 From your project folder, run:
 
 ```sh

@@ -34,7 +34,7 @@
   },
   "homepage": "https://www.docuwriter.ai",
   "author": "DocuWriter.ai",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "keywords": [
     "docuwriter",
     "documentation",
