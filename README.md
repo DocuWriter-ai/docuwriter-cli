@@ -9,7 +9,7 @@ Requires Node.js **22.18 or later** and a DocuWriter account. You can sign in or
 From your project folder, run:
 
 ```sh
-npx @docuwriter-ai/cli
+npx docuwriter
 ```
 
 Confirm the folder, sign in through your browser, and choose whether to generate documentation or import existing docs. Follow the prompts; the CLI uploads your project snapshot and opens your Space.
@@ -19,11 +19,11 @@ You can close the terminal after upload acceptance. Follow generation or import 
 ## Useful commands
 
 ```sh
-npx @docuwriter-ai/cli --cwd ./packages/api
-npx @docuwriter-ai/cli --no-open
-npx @docuwriter-ai/cli login
-npx @docuwriter-ai/cli logout
-npx @docuwriter-ai/cli --help
+npx docuwriter --cwd ./packages/api
+npx docuwriter --no-open
+npx docuwriter login
+npx docuwriter logout
+npx docuwriter --help
 ```
 
 `--cwd` selects a specific folder. `--no-open` prints links instead of opening your browser. Setup requires an interactive terminal.
@@ -32,7 +32,7 @@ npx @docuwriter-ai/cli --help
 
 Your code stays private and is not used to train AI models. Uploads include local edits and untracked files after Git ignore rules and credential/dependency exclusions are applied. Review your selected folder before continuing.
 
-After sign-in, usage analytics include setup answers to help improve the experience. No anonymous analytics are collected. Disable analytics with `npx @docuwriter-ai/cli analytics off`.
+After sign-in, usage analytics include setup answers to help improve the experience. No anonymous analytics are collected. Disable analytics with `npx docuwriter analytics off`.
 
 ## Support
 
